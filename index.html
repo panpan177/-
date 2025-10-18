@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>超フェス指定カタログ（日本鯖・画像のみ）</title>
+<title>組み合わせシミュレーター</title>
 <meta name="color-scheme" content="light dark">
 <style>
 *{box-sizing:border-box}html,body{margin:0}
@@ -12,14 +12,14 @@ body{background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,Se
 header{padding:16px 16px 0}h1{margin:0 0 10px;font-size:20px}
 .controls{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 12px}
 select,input,button{border-radius:10px;border:1px solid var(--line);background:transparent;color:inherit;padding:8px}
-button{cursor:pointer}.btn-primary{background:var(--pri);border-color:var(--pri);color:#fff}
-.btn-ghost{background:transparent;border:1px solid var(--line)}
-.note{color:var(--muted);margin:4px 0}.flex{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+button{cursor:pointer}.btn-primary{background:var(--pri);border-color:var(--pri);color:#fff}.btn-ghost{background:transparent;border:1px solid var(--line)}
+.flex{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .grid{display:grid;gap:10px;padding:12px;grid-template-columns:repeat(auto-fill,minmax(90px,1fr))}
 .card{border:1px solid var(--line);border-radius:10px;overflow:hidden;background:rgba(0,0,0,.03)}
 @media(prefers-color-scheme:dark){.card{background:rgba(255,255,255,.05)}}
 .thumb{aspect-ratio:1/1;background:#111}.thumb img{width:100%;height:100%;object-fit:cover;display:block}
-.card.selected{outline:3px solid var(--pri)}.list{display:grid;gap:12px;padding:12px}
+.card.selected{outline:3px solid var(--pri)}
+.list{display:grid;gap:12px;padding:12px}
 .bundle{border:1px solid var(--line);border-radius:12px;padding:10px;background:rgba(0,0,0,.02)}
 .row{display:flex;gap:6px;flex-wrap:wrap}.row img{width:56px;height:56px;object-fit:cover;border-radius:8px;border:1px solid var(--line)}
 .sep{height:1px;background:var(--line);margin:8px 0}
@@ -31,19 +31,18 @@ small.muted{color:var(--muted)}.hidden{display:none}
 </head>
 <body>
 <header>
-  <h1>超フェス指定カタログ（日本鯖・画像のみ）</h1>
+  <h1>組み合わせシミュレーター</h1>
   <div class="controls">
     <label>プラットフォーム
-      <select id="server"><option value="IOS_JP">iOS（日本）</option><option value="AD_JP">Android（日本）</option></select>
+      <select id="server"><option value="IOS_JP">iOS</option><option value="AD_JP">Android</option></select>
     </label>
-    <input id="q" type="search" placeholder="タグ検索（任意）">
+    <input id="q" type="search" placeholder="フィルタ（任意）">
     <button id="reset" class="btn-ghost">リセット</button>
   </div>
   <div class="controls flex">
     <strong id="count">選択 0 / 6</strong>
-    <button id="search" class="btn-primary" disabled>検索（仕入先結果を反映）</button>
-    <button id="copy" class="btn-ghost" disabled>共有URLコピー</button>
-    <small class="muted">※ 価格・名前・レベルは出しません（画像のみ）</small>
+    <button id="search" class="btn-primary" disabled>組み合わせを検索</button>
+    <button id="copy" class="btn-ghost" disabled>共有リンク</button>
   </div>
 </header>
 
@@ -51,18 +50,18 @@ small.muted{color:var(--muted)}.hidden{display:none}
 
 <section id="resultSection" class="hidden">
   <div class="sep"></div>
-  <div class="controls"><strong>検索結果</strong><small class="muted">（画像のみ・価格/名称なし）</small></div>
+  <div class="controls"><strong>検索結果</strong><small class="muted">（画像のみ表示）</small></div>
   <div id="result" class="list" aria-live="polite"></div>
 </section>
 
-<footer><small class="muted">© あなたの屋号｜日本サーバー専用（iOS/Androidのみ）</small></footer>
+<footer><small class="muted">©</small></footer>
 
 <script>
-const RELAY_BASE = "https://YOUR-WORKER-XXXX.workers.dev"; // ←あなたのWorker URLに置換
-const els = {chars:document.getElementById('chars'),result:document.getElementById('result'),
-             resultSection:document.getElementById('resultSection'),server:document.getElementById('server'),
-             q:document.getElementById('q'),reset:document.getElementById('reset'),
-             count:document.getElementById('count'),search:document.getElementById('search'),copy:document.getElementById('copy')};
+const RELAY_BASE = "https://YOUR-WORKER-XXXXX.workers.dev"; // ←あなたのWorkers URLに置換
+const els={chars:document.getElementById('chars'),result:document.getElementById('result'),
+resultSection:document.getElementById('resultSection'),server:document.getElementById('server'),
+q:document.getElementById('q'),reset:document.getElementById('reset'),count:document.getElementById('count'),
+search:document.getElementById('search'),copy:document.getElementById('copy')};
 const MAX=6; const state={pool:[],filtered:[],selected:new Set(),bundles:[]};
 const qp=k=>new URL(location.href).searchParams.get(k);
 
@@ -78,15 +77,14 @@ const qp=k=>new URL(location.href).searchParams.get(k);
 })();
 async function loadChars(){
   const r=await fetch(`${RELAY_BASE}/api/chars?server=${encodeURIComponent(els.server.value)}&v=${Date.now()}`,{cache:'no-cache'});
-  if(!r.ok){alert('候補取得失敗');return;}
-  const data=await r.json(); state.pool=data;
+  if(!r.ok){els.chars.innerHTML='<small class="muted">候補を取得できませんでした</small>';return;}
+  state.pool=await r.json();
 }
 function applyFilter(){
-  const term=(els.q.value||"").trim().toLowerCase();
-  const server=els.server.value;
+  const term=(els.q.value||"").trim().toLowerCase(); const server=els.server.value;
   state.filtered=state.pool.filter(x=>{
-    if(x.server&&x.server!==server)return false;
-    if(!term)return true;
+    if(x.server&&x.server!==server) return false;
+    if(!term) return true;
     return (x.tags||[]).join(" ").toLowerCase().includes(term);
   });
 }
@@ -95,39 +93,41 @@ function renderChars(){
   state.filtered.forEach(item=>{
     const card=document.createElement('div'); card.className='card'+(state.selected.has(item.token)?' selected':'');
     const th=document.createElement('div'); th.className='thumb';
-    const img=document.createElement('img'); img.src=item.thumb; img.loading='lazy'; img.alt='キャラ';
-    th.appendChild(img); card.appendChild(th); card.addEventListener('click',()=>toggle(item.token));
+    const img=document.createElement('img'); img.src=item.thumb; img.loading='lazy'; img.alt=''; th.appendChild(img);
+    card.appendChild(th); card.addEventListener('click',()=>toggle(item.token));
     frag.appendChild(card);
   }); els.chars.appendChild(frag);
 }
 function toggle(id){
   if(state.selected.has(id)) state.selected.delete(id);
-  else {if(state.selected.size>=MAX) return; state.selected.add(id);}
+  else { if(state.selected.size>=MAX) return; state.selected.add(id); }
   updateCount(); updateButtons(); renderChars();
 }
-function updateCount(){ els.count.textContent=`選択 ${state.selected.size} / ${MAX}`;}
+function updateCount(){ els.count.textContent=`選択 ${state.selected.size} / ${MAX}`; }
 function updateButtons(){ const on=state.selected.size>0; els.search.disabled=!on; els.copy.disabled=!on; }
 async function runSearch(){
   const body={server:els.server.value,tokens:Array.from(state.selected)};
   const r=await fetch(`${RELAY_BASE}/api/search`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-  if(!r.ok){alert('検索失敗');return;}
+  if(!r.ok){els.resultSection.classList.remove('hidden');els.result.innerHTML='<small class="muted">検索に失敗しました</small>';return;}
   state.bundles=await r.json(); renderResult();
-  const u=new URL(location.href); u.searchParams.set('server',els.server.value); u.searchParams.set('ids',body.tokens.join(',')); history.replaceState(null,'',u.toString());
+  const u=new URL(location.href);u.searchParams.set('server',els.server.value);u.searchParams.set('ids',body.tokens.join(','));history.replaceState(null,'',u.toString());
 }
 function renderResult(){
   els.resultSection.classList.remove('hidden'); els.result.innerHTML='';
-  if(!state.bundles.length){els.result.innerHTML='<small class="muted">該当なし</small>'; return;}
+  if(!state.bundles.length){els.result.innerHTML='<small class="muted">該当なし</small>';return;}
   const frag=document.createDocumentFragment();
   state.bundles.forEach(b=>{
     const box=document.createElement('div'); box.className='bundle';
     const row=document.createElement('div'); row.className='row';
-    (b.thumbs||[]).forEach(src=>{const im=document.createElement('img'); im.src=src; im.alt='結果'; row.appendChild(im);});
+    (b.thumbs||[]).forEach(src=>{const im=document.createElement('img'); im.src=src; im.alt=''; row.appendChild(im);});
     box.appendChild(row); frag.appendChild(box);
   }); els.result.appendChild(frag);
 }
-async function copyShare(){ const u=new URL(location.href);
-  try{await navigator.clipboard.writeText(u.toString()); els.copy.textContent='コピー済み'; setTimeout(()=>els.copy.textContent='共有URLコピー',1200);}
-  catch{prompt('このURLをコピー',u.toString());}}
+async function copyShare(){
+  const u=new URL(location.href);
+  try{await navigator.clipboard.writeText(u.toString()); els.copy.textContent='コピー済み'; setTimeout(()=>els.copy.textContent='共有リンク',1200);}
+  catch{prompt('このURLをコピー',u.toString());}
+}
 </script>
 </body>
 </html>
