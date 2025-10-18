@@ -1,4 +1,4 @@
-<!doctype html> 
+<!doctype html>
 <html lang="ja">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -12,7 +12,8 @@ body{background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,Se
 header{padding:16px 16px 0}h1{margin:0 0 10px;font-size:20px}
 .controls{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 12px}
 select,input,button{border-radius:10px;border:1px solid var(--line);background:transparent;color:inherit;padding:8px}
-button{cursor:pointer}.btn-primary{background:var(--pri);border-color:var(--pri);color:#fff}.btn-ghost{background:transparent;border:1px solid var(--line)}
+button{cursor:pointer}.btn-primary{background:var(--pri);border-color:var(--pri);color:#fff}
+.btn-ghost{background:transparent;border:1px solid var(--line)}
 .flex{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .grid{display:grid;gap:10px;padding:12px;grid-template-columns:repeat(auto-fill,minmax(90px,1fr))}
 .card{border:1px solid var(--line);border-radius:10px;overflow:hidden;background:rgba(0,0,0,.03)}
@@ -34,7 +35,10 @@ small.muted{color:var(--muted)}.hidden{display:none}
   <h1>組み合わせシミュレーター</h1>
   <div class="controls">
     <label>プラットフォーム
-      <select id="server"><option value="IOS_JP">iOS</option><option value="AD_JP">Android</option></select>
+      <select id="server">
+        <option value="IOS_JP">iOS</option>
+        <option value="AD_JP">Android</option>
+      </select>
     </label>
     <input id="q" type="search" placeholder="フィルタ（任意）">
     <button id="reset" class="btn-ghost">リセット</button>
@@ -57,7 +61,8 @@ small.muted{color:var(--muted)}.hidden{display:none}
 <footer><small class="muted">©</small></footer>
 
 <script>
-const RELAY_BASE = "https://YOUR-WORKER-XXXXX.workers.dev"; // ←あなたのWorkers URLに置換
+const RELAY_BASE = "https://dawn-darkness-f610.p61036103.workers.dev"; // ←あなたのWorkers URL（固定）
+
 const els={chars:document.getElementById('chars'),result:document.getElementById('result'),
 resultSection:document.getElementById('resultSection'),server:document.getElementById('server'),
 q:document.getElementById('q'),reset:document.getElementById('reset'),count:document.getElementById('count'),
@@ -76,9 +81,13 @@ const qp=k=>new URL(location.href).searchParams.get(k);
   els.copy.addEventListener('click', copyShare);
 })();
 async function loadChars(){
-  const r=await fetch(`${RELAY_BASE}/api/chars?server=${encodeURIComponent(els.server.value)}&v=${Date.now()}`,{cache:'no-cache'});
-  if(!r.ok){els.chars.innerHTML='<small class="muted">候補を取得できませんでした</small>';return;}
-  state.pool=await r.json();
+  try{
+    const r=await fetch(`${RELAY_BASE}/api/chars?server=${encodeURIComponent(els.server.value)}&v=${Date.now()}`,{cache:'no-cache'});
+    if(!r.ok) throw new Error();
+    state.pool=await r.json();
+  }catch(e){
+    els.chars.innerHTML='<small class="muted">候補を取得できませんでした（中継URLを確認）</small>';
+  }
 }
 function applyFilter(){
   const term=(els.q.value||"").trim().toLowerCase(); const server=els.server.value;
@@ -107,9 +116,14 @@ function updateCount(){ els.count.textContent=`選択 ${state.selected.size} / $
 function updateButtons(){ const on=state.selected.size>0; els.search.disabled=!on; els.copy.disabled=!on; }
 async function runSearch(){
   const body={server:els.server.value,tokens:Array.from(state.selected)};
-  const r=await fetch(`${RELAY_BASE}/api/search`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-  if(!r.ok){els.resultSection.classList.remove('hidden');els.result.innerHTML='<small class="muted">検索に失敗しました</small>';return;}
-  state.bundles=await r.json(); renderResult();
+  try{
+    const r=await fetch(`${RELAY_BASE}/api/search`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(!r.ok) throw new Error();
+    state.bundles=await r.json();
+  }catch(e){
+    state.bundles=[]; alert('検索に失敗しました');
+  }
+  renderResult();
   const u=new URL(location.href);u.searchParams.set('server',els.server.value);u.searchParams.set('ids',body.tokens.join(','));history.replaceState(null,'',u.toString());
 }
 function renderResult(){
