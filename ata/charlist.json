@@ -1,8 +1,0 @@
-[
-  { "rid": "1934", "server": "IOS_JP", "tags": ["超フェス"], "srcPath": "/path/to/1934.png" },
-  { "rid": "1927", "server": "IOS_JP", "tags": ["超フェス"], "srcPath": "/path/to/1927.png" },
-  { "rid": "1921", "server": "IOS_JP", "tags": [],        "srcPath": "/path/to/1921.png" },
-
-  { "rid": "A01",  "server": "AD_JP",  "tags": ["超フェス"], "srcPath": "/path/to/a01.png" },
-  { "rid": "A02",  "server": "AD_JP",  "tags": [],          "srcPath": "/path/to/a02.png" }
-]
